@@ -20,7 +20,6 @@ services:
 
   lakeflow-backend:
     image: docker.io/${DOCKERHUB_USER:-lampx83}/lakeflow-backend:latest
-    platform: linux/amd64
     depends_on:
       - qdrant
     ports:
@@ -41,7 +40,6 @@ services:
 
   lakeflow-frontend:
     image: docker.io/${DOCKERHUB_USER:-lampx83}/lakeflow-frontend:latest
-    platform: linux/amd64
     depends_on:
       - lakeflow-backend
     ports:
