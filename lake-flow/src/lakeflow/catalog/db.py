@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 
 def _ensure_db_ready(db_path: Path) -> None:
-    """Đảm bảo thư mục tồn tại; xóa file rỗng hoặc khi path là thư mục (sai) để tạo DB mới."""
+    """Ensure directory exists; remove empty file or when path is a directory (wrong) to create new DB."""
     db_path = Path(db_path).resolve()
     parent = db_path.parent
     parent_str = os.path.abspath(str(parent))

@@ -25,7 +25,7 @@ ALLOWED = {
 
 
 class RunStepBody(BaseModel):
-    """Chỉ chạy trên các thư mục được chọn; để trống = chạy toàn bộ. force_rerun = chạy lại kể cả đã làm rồi. collection_name = chỉ step4 (Qdrant). qdrant_url = chỉ step4 (insert vào Qdrant Service này)."""
+    """Run only on selected folders; empty = run all. force_rerun = run again even if already done. collection_name = step4 only (Qdrant). qdrant_url = step4 only (insert into this Qdrant Service)."""
     only_folders: Optional[list[str]] = None
     force_rerun: Optional[bool] = False
     collection_name: Optional[str] = None
@@ -33,7 +33,7 @@ class RunStepBody(BaseModel):
 
 
 def _list_folders_for_step(step: str) -> list[str]:
-    """Trả về danh sách tên thư mục (domain / file_hash) cho bước pipeline."""
+    """Return list of folder names (domain / file_hash) for pipeline step."""
     from lakeflow.config import paths
 
     out = []
@@ -49,7 +49,7 @@ def _list_folders_for_step(step: str) -> list[str]:
         elif step == "step2":
             staging = paths.staging_path()
             if staging.exists():
-                # 200_staging: <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+                # 200_staging: <domain>/<file_hash>/ or (legacy) <file_hash>/
                 domain_names = []
                 file_hashes_flat = []
                 for entry in staging.iterdir():
@@ -59,12 +59,12 @@ def _list_folders_for_step(step: str) -> list[str]:
                         file_hashes_flat.append(entry.name)
                     else:
                         domain_names.append(entry.name)
-                # Ưu tiên trả về thư mục cha (domain) để chọn; không có thì trả về file_hash (cấu trúc cũ)
+                # Prefer returning parent folder (domain) for selection; else file_hash (legacy)
                 out = sorted(domain_names) if domain_names else sorted(file_hashes_flat)
         elif step == "step3":
             processed = paths.processed_path()
             if processed.exists():
-                # 300_processed: <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+                # 300_processed: <domain>/<file_hash>/ or (legacy) <file_hash>/
                 file_hashes = set()
                 for entry in processed.iterdir():
                     if not entry.is_dir() or entry.name.startswith("."):
@@ -79,7 +79,7 @@ def _list_folders_for_step(step: str) -> list[str]:
         elif step == "step4":
             emb = paths.embeddings_path()
             if emb.exists():
-                # 400_embeddings: <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+                # 400_embeddings: <domain>/<file_hash>/ or (legacy) <file_hash>/
                 domain_names = []
                 file_hashes_flat = []
                 for entry in emb.iterdir():
@@ -97,7 +97,7 @@ def _list_folders_for_step(step: str) -> list[str]:
 
 @router.get("/folders/{step}")
 def list_folders(step: str) -> dict:
-    """Danh sách thư mục có thể chọn để chạy bước pipeline (chọn subset thay vì chạy toàn bộ)."""
+    """List of folders that can be selected to run pipeline step (select subset instead of running all)."""
     if step not in ALLOWED:
         raise HTTPException(status_code=400, detail="Invalid step")
     folders = _list_folders_for_step(step)
@@ -122,7 +122,7 @@ def run_step(step: str, body: Optional[RunStepBody] = Body(default=None)):
     if body and body.collection_name and body.collection_name.strip():
         env["PIPELINE_QDRANT_COLLECTION"] = body.collection_name.strip()
     if body and body.qdrant_url and body.qdrant_url.strip() and step == "step4":
-        # Truyền Qdrant Service cho script step3_processed_qdrant (host:port hoặc URL)
+        # Pass Qdrant Service to script step3_processed_qdrant (host:port or URL)
         u = body.qdrant_url.strip()
         if u.startswith("http://"):
             u = u[7:]
@@ -136,7 +136,7 @@ def run_step(step: str, body: Optional[RunStepBody] = Body(default=None)):
             env["QDRANT_HOST"] = u
             env["QDRANT_PORT"] = "6333"
 
-    # Truyền đúng DATA_BASE_PATH mà backend đang dùng (tránh subprocess nhận /data)
+    # Pass correct DATA_BASE_PATH that backend is using (avoid subprocess getting /data)
     from lakeflow.runtime.config import runtime_config
     try:
         env["LAKEFLOW_DATA_BASE_PATH"] = str(runtime_config.get_data_base_path())
@@ -151,7 +151,7 @@ def run_step(step: str, body: Optional[RunStepBody] = Body(default=None)):
             text=True,
             env=env,
             cwd=Path(__file__).resolve().parents[3],
-            timeout=60 * 60,  # 1h tuỳ nhu cầu
+            timeout=60 * 60,  # 1h as needed
         )
     except subprocess.TimeoutExpired:
         raise HTTPException(status_code=408, detail="Pipeline step timed out")

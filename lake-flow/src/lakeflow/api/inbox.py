@@ -88,7 +88,7 @@ async def upload_to_inbox(
         except Exception as e:
             errors.append(f"{f.filename}: {e!s}")
 
-    # Tự chạy pipeline cho domain (step0→step4), collection Qdrant = tên domain; có thể ghi sang qdrant_url (VD Research Qdrant)
+    # Auto-run pipeline for domain (step0→step4), Qdrant collection = domain name; can write to qdrant_url (e.g. Research Qdrant)
     if uploaded:
         _trigger_pipeline_for_domain(domain, qdrant_url=(qdrant_url or "").strip() or None)
 
@@ -96,7 +96,7 @@ async def upload_to_inbox(
 
 
 def _trigger_pipeline_for_domain(domain: str, qdrant_url: Optional[str] = None) -> None:
-    """Chạy pipeline (step0→step4) cho domain trong background; step4 dùng collection_name = domain, có thể ghi sang qdrant_url."""
+    """Run pipeline (step0→step4) for domain in background; step4 uses collection_name = domain, can write to qdrant_url."""
     base_url = os.getenv("LAKEFLOW_PIPELINE_BASE_URL", "http://127.0.0.1:8011").rstrip("/")
 
     def _run() -> None:

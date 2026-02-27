@@ -13,7 +13,7 @@ from config.settings import DATA_ROOT
 from state.session import require_login
 from services.api_client import get_data_path_from_api
 
-# File viewer: giới hạn kích thước (tránh treo)
+# File viewer: size limit (avoid hang)
 MAX_VIEW_TEXT_BYTES = 10 * 1024 * 1024   # 10 MB cho txt/json/jsonl
 MAX_VIEW_NPY_BYTES = 5 * 1024 * 1024     # 5 MB cho npy
 MAX_VIEW_PDF_BYTES = 50 * 1024 * 1024    # 50 MB cho pdf
@@ -35,13 +35,13 @@ ZONE_NAMES = [
 def _zones_from_root(root: Path) -> dict[str, Path]:
     return {z: root / z for z in ZONE_NAMES}
 
-# Fallback khi chưa gọi API (module load)
+# Fallback before API called (module load)
 ZONES = _zones_from_root(DATA_ROOT)
 
-MAX_TREE_DEPTH = 30  # Giới hạn độ sâu tránh đệ quy vô hạn
-CACHE_TTL_TREE = 90  # Giây cache cho list_dir (NAS chậm)
+MAX_TREE_DEPTH = 30  # Max depth to avoid infinite recursion
+CACHE_TTL_TREE = 90  # Seconds to cache list_dir (NAS is slow)
 
-# Bước pipeline: 0=inbox→raw, 1=raw→staging, 2=staging→processed, 3=processed→embeddings, 4=embeddings→Qdrant
+# Pipeline steps: 0=inbox→raw, 1=raw→staging, 2=staging→processed, 3=processed→embeddings, 4=embeddings→Qdrant
 PIPELINE_STEP_LABELS = {
     0: "Step 0 (Inbox → Raw)",
     1: "Step 1 (Raw → Staging)",
@@ -50,19 +50,19 @@ PIPELINE_STEP_LABELS = {
     4: "Step 4 (Embeddings → Qdrant)",
 }
 
-# Cột trạng thái từng bước cho file trong 000_inbox
+# Step status columns for files in 000_inbox
 INBOX_STEP_COLUMNS = ["Ingest", "Staging", "Processed", "Embeddings", "Qdrant"]
 
 
 # =====================================================
-# CACHE ĐỌC NAS (giảm lag, tránh đọc lại cùng path)
+# NAS read cache (reduce lag, avoid re-reading same path)
 # =====================================================
 
 @st.cache_data(ttl=CACHE_TTL_TREE)
 def _list_dir_cached(path_str: str) -> tuple[list[str], list[tuple[str, int]]]:
     """
-    Đọc thư mục từ NAS, trả về (tên thư mục, [(tên file, size)]).
-    Dùng thread để không block UI; kết quả được cache.
+    Read directory from NAS, return (dir names, [(file name, size)]).
+    Uses thread to avoid blocking UI; result is cached.
     """
     path = Path(path_str)
     dirs, files = [], []
@@ -95,13 +95,13 @@ def _format_size(size_bytes: int) -> str:
 
 
 def _path_to_key(path_str: str) -> str:
-    """Tạo key widget duy nhất từ path (tránh trùng khi path dài)."""
+    """Create unique widget key from path (avoid collision when path is long)."""
     return hashlib.md5(path_str.encode()).hexdigest()[:24]
 
 
 @st.cache_data(ttl=120)
 def _sha256_file_cached(path_str: str) -> str | None:
-    """Tính SHA256 của file (để đối chiếu với raw_objects). Cache 120s."""
+    """Compute SHA256 of file (to match raw_objects). Cache 120s."""
     path = Path(path_str)
     if not path.is_file():
         return None
@@ -117,8 +117,8 @@ def _sha256_file_cached(path_str: str) -> str | None:
 
 def get_inbox_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str]:
     """
-    Với file trong 000_inbox: trả về từng bước đã xử lý hay chưa.
-    Keys: Ingest, Staging, Processed, Embeddings, Qdrant. Value: "✓" hoặc "" (Qdrant có thể "?" nếu không biết).
+    For file in 000_inbox: return whether each step is done.
+    Keys: Ingest, Staging, Processed, Embeddings, Qdrant. Value: "✓" or "" (Qdrant may be "?" if unknown).
     """
     result = {k: "" for k in INBOX_STEP_COLUMNS}
     path_str = str(file_path.resolve())
@@ -127,7 +127,7 @@ def get_inbox_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str
         return result
     root = DATA_ROOT
     catalog_db = root / "500_catalog" / "catalog.sqlite"
-    # Step 0: Ingest (đã có trong raw_objects)
+    # Step 0: Ingest (already in raw_objects)
     try:
         if catalog_db.exists():
             conn = sqlite3.connect(f"file:{catalog_db}?mode=ro", uri=True, timeout=5)
@@ -139,7 +139,7 @@ def get_inbox_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str
         pass
     if result["Ingest"] != "✓":
         return result
-    # Steps 1–3: kiểm tra thư mục; hỗ trợ cả domain/hash và hash (cấu trúc cũ)
+    # Steps 1–3: check folder; support both domain/hash and hash (legacy)
     _staging_dir = root / "200_staging" / domain / file_hash if domain and domain != "." else root / "200_staging" / file_hash
     _staging_alt = root / "200_staging" / file_hash if domain and domain != "." else None
     if (_staging_dir / "validation.json").exists() or (_staging_alt and (_staging_alt / "validation.json").exists()):
@@ -152,22 +152,22 @@ def get_inbox_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str
     _emb_alt = root / "400_embeddings" / file_hash if domain and domain != "." else None
     if (_emb_dir / "embedding.npy").exists() or (_emb_alt and (_emb_alt / "embedding.npy").exists()):
         result["Embeddings"] = "✓"
-    # Step 4: Qdrant — không có trong catalog, để trống hoặc "?"
+    # Step 4: Qdrant — not in catalog, leave empty or "?"
     result["Qdrant"] = "?" if result["Embeddings"] == "✓" else ""
     return result
 
 
 def get_raw_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str]:
     """
-    Với file trong 100_raw: Ingest luôn ✓ (đã ở Raw), các bước sau kiểm tra theo domain/hash.
-    file_hash = file_path.stem (tên file không extension).
+    For file in 100_raw: Ingest always ✓ (already in Raw), later steps checked by domain/hash.
+    file_hash = file_path.stem (file name without extension).
     """
     result = {k: "" for k in INBOX_STEP_COLUMNS}
-    result["Ingest"] = "✓"  # Đã ingest (file đang ở Raw)
+    result["Ingest"] = "✓"  # Ingested (file is in Raw)
     file_hash = file_path.stem
     domain = domain or "."
     root = DATA_ROOT
-    # Hỗ trợ cả domain/hash và hash (cấu trúc cũ); backend ghi embedding.npy (không có s)
+    # Support both domain/hash and hash (legacy); backend writes embedding.npy (no s)
     _staging = root / "200_staging" / domain / file_hash if domain != "." else root / "200_staging" / file_hash
     _staging_alt = root / "200_staging" / file_hash if domain != "." else None
     if (_staging / "validation.json").exists() or (_staging_alt and (_staging_alt / "validation.json").exists()):
@@ -193,7 +193,7 @@ def render_folder_tree(
     depth: int = 0,
 ) -> None:
     """
-    Chỉ hiển thị cây thư mục (không có file). Bấm thư mục = mở/đóng + chọn để hiển thị danh sách file bên phải.
+    Show directory tree only (no files). Click folder = expand/collapse + select to show file list on the right.
     """
     if depth >= MAX_TREE_DEPTH:
         st.caption("… (đạt giới hạn độ sâu)")
@@ -206,7 +206,7 @@ def render_folder_tree(
         st.caption(f"⚠️ Lỗi: {e}")
         return
 
-    indent = "  " * depth  # 2 space cho gọn
+    indent = "  " * depth  # 2 spaces for indent
 
     for d_name in dir_names:
         child_path = root / d_name
@@ -241,7 +241,7 @@ def render_file_list(
     selected_file: str | None,
 ) -> None:
     """
-    Hiển thị danh sách file trong thư mục dạng bảng; chọn dòng để xem nội dung.
+    Show file list in folder as table; select row to view content.
     """
     if not _is_safe_path(folder_path, zone_root):
         st.warning("Thư mục không thuộc zone.")
@@ -256,14 +256,14 @@ def render_file_list(
         st.info("Thư mục trống hoặc không có file.")
         return
 
-    # 000_inbox hoặc 100_raw (Gốc hoặc thư mục domain): bảng có cột từng bước với ✓
-    # 100_raw bỏ qua bước Ingest (luôn ✓ vì file đã ở Raw)
-    # Zone khác: bảng có cột Bước pipeline (mô tả text)
+    # 000_inbox or 100_raw (root or domain folder): table has step columns with ✓
+    # 100_raw skips Ingest step (always ✓ since file is in Raw)
+    # Other zones: table has Pipeline step (text description)
     rows = []
     is_inbox_zone = zone_name == "000_inbox"
     is_raw_zone = zone_name == "100_raw"
     use_step_columns = is_inbox_zone or is_raw_zone
-    # Domain = segment đầu tiên dưới zone (để đúng cả khi xem file trong thư mục con, vd. 000_inbox/education/2024/)
+    # Domain = first segment under zone (correct even when viewing file in subfolder, e.g. 000_inbox/education/2024/)
     try:
         rel = folder_path.resolve().relative_to(zone_root.resolve())
         domain = rel.parts[0] if rel.parts else "."
@@ -327,9 +327,9 @@ def get_pipeline_step_for_path(
     file_path: Path, zone_name: str, data_root: Path | None = None
 ) -> str | None:
     """
-    Xác định file đã được xử lý tới bước nào trong pipeline (0–4) bằng catalog và kiểm tra file hệ thống.
-    Trả về mô tả bước hoặc None nếu không xác định được.
-    data_root: nếu có thì dùng (path từ backend); không thì dùng DATA_ROOT từ env.
+    Determine which pipeline step (0–4) the file has been processed to, via catalog and filesystem checks.
+    Return step description or None if unknown.
+    data_root: if set use it (path from backend); else use DATA_ROOT from env.
     """
     root = data_root if data_root is not None else DATA_ROOT
     staging_root = root / "200_staging"
@@ -383,7 +383,7 @@ def get_pipeline_step_for_path(
         return "Chưa có trong Catalog (chưa chạy Step 0)"
 
     domain = domain or "."
-    # Hỗ trợ cả domain/hash và hash (cấu trúc cũ); backend ghi embedding.npy (không có s)
+    # Support both domain/hash and hash (legacy); backend writes embedding.npy (no s)
     _staging = staging_root / domain / file_hash if domain != "." else staging_root / file_hash
     _staging_alt = staging_root / file_hash if domain != "." else None
     if (_staging / "validation.json").exists() or (_staging_alt and (_staging_alt / "validation.json").exists()):
@@ -396,13 +396,13 @@ def get_pipeline_step_for_path(
     _emb_alt = embeddings_root / file_hash if domain != "." else None
     if (_emb / "embedding.npy").exists() or (_emb_alt and (_emb_alt / "embedding.npy").exists()):
         step = 3
-    # Step 4: cần query Qdrant để xác nhận — hiện không có trong catalog
+    # Step 4: would need to query Qdrant to confirm — not in catalog currently
 
     return PIPELINE_STEP_LABELS.get(step, f"Step {step}")
 
 
 def _is_safe_path(file_path: Path, zone_root: Path) -> bool:
-    """Đảm bảo file nằm trong zone (tránh path traversal)."""
+    """Ensure file is inside zone (prevent path traversal)."""
     try:
         return file_path.resolve().is_relative_to(zone_root.resolve())
     except (ValueError, OSError):
@@ -411,8 +411,8 @@ def _is_safe_path(file_path: Path, zone_root: Path) -> bool:
 
 def render_file_content(file_path: Path) -> None:
     """
-    Hiển thị nội dung file theo định dạng: txt, json, jsonl, npy, pdf, csv.
-    Giới hạn kích thước để tránh treo.
+    Display file content by format: txt, json, jsonl, npy, pdf, csv.
+    Size limit to avoid hang.
     """
     if not file_path.is_file():
         st.warning("File không tồn tại hoặc không đọc được.")
@@ -532,7 +532,7 @@ def render_file_content(file_path: Path) -> None:
         except Exception as e:
             st.error(f"Lỗi đọc CSV: {e}")
 
-    # ---------- Khác ----------
+    # ---------- Other ----------
     else:
         st.info(f"Định dạng `{suffix}` chưa hỗ trợ xem trực tiếp. Bạn có thể tải file xuống.")
         _download_button(file_path)
@@ -560,7 +560,7 @@ def render():
     if not require_login():
         return
 
-    # Lấy data root từ backend (đúng path khi chạy dev; tránh /data mặc định)
+    # Get data root from backend (correct path when running dev; avoid default /data)
     if "data_lake_root" not in st.session_state:
         api_path = get_data_path_from_api()
         if api_path:
@@ -608,7 +608,7 @@ def render():
         current_folder = zone_root_str
 
     # --------------------------------------------------
-    # LAYOUT 2 CỘT: Cây thư mục (gọn) trái | Bảng file + nội dung phải
+    # LAYOUT 2 COLUMNS: Directory tree (compact) left | File table + content right
     # --------------------------------------------------
     col_tree, col_files = st.columns([0.9, 2.1])
 
@@ -634,7 +634,7 @@ def render():
         with st.spinner("Đang tải danh sách..."):
             render_file_list(folder_path, zone_name, zone_path, st.session_state.get("datalake_selected_file"))
 
-        # Nội dung file khi đã chọn
+        # File content when selected
         selected = st.session_state.get("datalake_selected_file")
         if selected:
             sel_path = Path(selected)

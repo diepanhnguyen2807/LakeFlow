@@ -41,7 +41,7 @@ def extract_file_hash(pdf_path: Path) -> str:
 
 
 def _parent_dir_from_raw(pdf_path: Path, raw_root: Path) -> str:
-    """Thư mục cha trong 100_raw (domain)."""
+    """Parent directory in 100_raw (domain)."""
     try:
         rel = pdf_path.relative_to(raw_root)
         return rel.parts[0] if rel.parts else ""
@@ -50,7 +50,7 @@ def _parent_dir_from_raw(pdf_path: Path, raw_root: Path) -> str:
 
 
 def already_staged(file_hash: str, parent_dir: str = "") -> bool:
-    """Kiểm tra đã staging chưa (200_staging/<parent_dir>/<file_hash>/validation.json)."""
+    """Check if already staged (200_staging/<parent_dir>/<file_hash>/validation.json)."""
     root = paths.staging_path()
     if parent_dir:
         return (root / parent_dir / file_hash / "validation.json").exists()

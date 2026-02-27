@@ -154,6 +154,7 @@ See [lake-flow/README.md](lake-flow/README.md) and [lake-flow/docs/API_EMBED.md]
 
 - **CI** (`.github/workflows/ci.yml`): On push/PR to `main` or `develop` — lint (Ruff) and Docker build for backend and frontend.
 - **CD** (`.github/workflows/cd.yml`): On release (tag) — build and push images to GitHub Container Registry.
+- **Push to Docker Hub** (`.github/workflows/push-dockerhub.yml`): On push to `main` (khi có thay đổi `lake-flow/` hoặc `lake-flow-ui/`) — build và đẩy `lakeflow-backend:latest`, `lakeflow-frontend:latest` lên Docker Hub. Cần secrets: `DOCKERHUB_USER`, `DOCKERHUB_TOKEN`.
 - **PyPI** (`.github/workflows/publish-pypi.yml`): On GitHub Release — publish package `lake-flow-pipeline` from the `lake-flow/` directory. See [docs/PUBLISH-PYPI.md](docs/PUBLISH-PYPI.md). Frontend is packaged separately: `lake-flow-ui/` (package `lakeflow-ui`).
 
 Do not commit `.env`; use `.env.example` as reference.
@@ -161,6 +162,24 @@ Do not commit `.env`; use `.env.example` as reference.
 ---
 
 ## Deployment
+
+### Portainer Stack
+
+**Portainer không hỗ trợ `build`** trong stack → dùng **image đã push sẵn** lên Docker Hub.
+
+1. **Build và push** (chạy trên máy có Docker):
+   ```bash
+   cd LakeFlow
+   export DOCKERHUB_USER=your-username
+   docker build -t $DOCKERHUB_USER/lakeflow-backend:latest ./lake-flow
+   docker build -t $DOCKERHUB_USER/lakeflow-frontend:latest ./lake-flow-ui
+   docker push $DOCKERHUB_USER/lakeflow-backend:latest
+   docker push $DOCKERHUB_USER/lakeflow-frontend:latest
+   ```
+2. **Portainer:** Stacks → Add stack → Web editor → paste nội dung `portainer-stack.yml`.
+3. **Env vars** trong Portainer: `DOCKERHUB_USER`, và các biến cần thiết từ `.env.example` (vd. `LAKEFLOW_DATA_BASE_PATH`, `QDRANT_HOST`).
+
+Xem `portainer-stack.yml` trong thư mục LakeFlow.
 
 ### Running manually on the server
 

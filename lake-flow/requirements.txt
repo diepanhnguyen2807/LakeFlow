@@ -21,12 +21,12 @@ openpyxl>=3.1.0
 # =========================
 # AI / NLP (embedding)
 # =========================
-# Docker: cài torch CPU trước (Dockerfile). Mac M1 (venv): pip install torch rồi pip install -r requirements.txt → dùng GPU Metal (MPS).
+# Docker: install torch CPU first (Dockerfile). Mac M1 (venv): pip install torch then pip install -r requirements.txt → use GPU Metal (MPS).
 sentence-transformers>=2.2.2
 transformers>=4.36.0
 
 # =========================
-# Backend API (để sẵn)
+# Backend API (ready to use)
 # =========================
 fastapi>=0.110.0
 uvicorn>=0.27.0

@@ -56,7 +56,7 @@ services:
       API_BASE_URL: http://lakeflow-backend:8011
     build:
       context: ./lake-flow-ui
-      dockerfile: lake-flow-ui/Dockerfile
+      dockerfile: Dockerfile
     container_name: lakeflow-frontend
     depends_on:
       lakeflow-backend:

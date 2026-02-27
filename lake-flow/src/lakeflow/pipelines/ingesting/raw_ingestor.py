@@ -40,7 +40,7 @@ class RawIngestor:
         raw_path = self.raw_root / domain / f"{file_hash}{ext}"
         now = datetime.utcnow().isoformat()
 
-        # ---------- DEDUP (bỏ qua nếu force) ----------
+        # ---------- DEDUP (skip if force) ----------
         if not force and hash_exists(self.conn, file_hash):
             print("[INGEST]   Duplicate detected, skip copy")
             self._log(src, file_hash, "DUPLICATE", "Hash already exists")

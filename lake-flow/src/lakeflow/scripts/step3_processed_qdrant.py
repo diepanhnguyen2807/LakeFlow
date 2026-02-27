@@ -97,17 +97,17 @@ def main():
 
     ingested = skipped = failed = 0
 
-    # 400_embeddings: <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+    # 400_embeddings: <domain>/<file_hash>/ or (legacy) <file_hash>/
     def iter_embeddings_entries():
         for entry in embeddings_root.iterdir():
             if not entry.is_dir() or entry.name.startswith("."):
                 continue
             if (entry / "embedding.npy").exists():
-                yield entry  # cấu trúc cũ: embeddings_root/file_hash/
+                yield entry  # legacy: embeddings_root/file_hash/
             else:
                 for sub in entry.iterdir():
                     if sub.is_dir() and (sub / "embedding.npy").exists():
-                        yield sub  # cấu trúc mới: embeddings_root/domain/file_hash/
+                        yield sub  # new: embeddings_root/domain/file_hash/
 
     emb_dirs = list(iter_embeddings_entries())
     print(f"[DEBUG] Found {len(emb_dirs)} embedding dirs")
@@ -122,7 +122,7 @@ def main():
         parent_name = emb_dir.parent.name if emb_dir.parent != embeddings_root else None
         rel_path = f"{parent_name}/{file_hash}" if parent_name else file_hash
 
-        # Lọc theo thư mục đã chọn trên cây: domain, domain/file_hash, hoặc file_hash (cấu trúc cũ)
+        # Filter by selected folder in tree: domain, domain/file_hash, or file_hash (legacy)
         if only_folders_set is not None:
             if rel_path in only_folders_set:
                 pass
@@ -146,7 +146,7 @@ def main():
             continue
 
         try:
-            # ---------- Load vectors (đọc từ NAS với retry) ----------
+            # ---------- Load vectors (read from NAS with retry) ----------
             vectors = nas_safe_load_npy(embeddings_file)
             if vectors.ndim != 2:
                 raise RuntimeError(
@@ -160,7 +160,7 @@ def main():
                 collection_name=collection_name,
             )
 
-            # ---------- Ingest (truyền parent_name để tránh iterdir trên NAS) ----------
+            # ---------- Ingest (pass parent_name to avoid iterdir on NAS) ----------
             count = ingest_file_embeddings(
                 client=client,
                 file_hash=file_hash,

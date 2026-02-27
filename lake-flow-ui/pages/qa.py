@@ -16,7 +16,7 @@ def _ensure_qa_history_by_user():
 
 
 def _current_username(token: str) -> str | None:
-    """Username của tài khoản đang đăng nhập (để chỉ hiển thị lịch sử của user này)."""
+    """Username of logged-in account (to show only this user's history)."""
     if "current_username" in st.session_state and st.session_state.current_username:
         return st.session_state.current_username
     me = get_me(token)
@@ -43,7 +43,7 @@ def render():
     )
 
     # --------------------------------------------------
-    # Lịch sử trò chuyện (chỉ của tài khoản hiện tại)
+    # Chat history (current account only)
     # --------------------------------------------------
     with st.expander("📜 Lịch sử trò chuyện", expanded=False):
         if not current_user:
@@ -55,7 +55,7 @@ def render():
         if not history_list:
             st.info("Chưa có lịch sử. Hỏi AI để lưu vào đây.")
         else:
-            for i, item in enumerate(reversed(history_list[-50:])):  # 50 gần nhất
+            for i, item in enumerate(reversed(history_list[-50:])):  # last 50
                 raw_created = item.get("created_at", "")
                 created = str(raw_created)[:19] if raw_created else ""
                 raw_q = item.get("question", "") or ""
@@ -161,7 +161,7 @@ def render():
                     st.session_state.qa_last_result = data
                     st.session_state.qa_last_question = question.strip()
                     st.session_state.qa_feedback = None
-                    # Lưu vào lịch sử chỉ cho tài khoản hiện tại
+                    # Save to history for current account only
                     user_key = current_user if current_user else "__session__"
                     st.session_state.qa_history_by_user.setdefault(user_key, []).append({
                         "question": question.strip(),
@@ -191,7 +191,7 @@ def render():
 
         st.markdown(answer)
 
-        # ---------- Like / Dislike (bấm lại cùng nút = xóa, hai nút hiện bình thường) ----------
+        # ---------- Like / Dislike (click same button again = remove, both buttons show normally) ----------
         feedback = st.session_state.get("qa_feedback") or None
         bl, br = st.columns(2)
         with bl:

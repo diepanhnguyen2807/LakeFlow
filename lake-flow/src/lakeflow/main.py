@@ -1,4 +1,4 @@
-# Load .env sớm nhất (trước mọi import dùng config)
+# Load .env as early as possible (before any import that uses config)
 import lakeflow.config.env  # noqa: F401, E402 — trigger load_dotenv
 
 from fastapi import FastAPI
@@ -22,7 +22,7 @@ from lakeflow.runtime.config import runtime_config
 
 def create_app() -> FastAPI:
     """
-    Khởi tạo FastAPI app cho LakeFlow Backend
+    Initialize FastAPI app for LakeFlow Backend
     """
     app = FastAPI(
         title="LakeFlow Backend API",
@@ -35,7 +35,7 @@ def create_app() -> FastAPI:
     # -------------------------
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # sau này siết domain
+        allow_origins=["*"],  # tighten domain later
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

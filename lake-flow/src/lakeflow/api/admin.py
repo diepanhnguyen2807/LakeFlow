@@ -10,7 +10,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 def _require_admin(payload: dict) -> None:
-    """Chỉ admin mới được gọi API admin (xóa tin nhắn)."""
+    """Only admin can call admin API (delete messages)."""
     if payload.get("sub") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

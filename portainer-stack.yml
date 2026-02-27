@@ -1,0 +1,58 @@
+# Portainer Stack — dùng image đã build sẵn (không dùng build).
+# Trước khi deploy:
+#   1. Build và push image lên Docker Hub:
+#      cd LakeFlow
+#      docker build -t DOCKERHUB_USER/lakeflow-backend:latest ./lake-flow
+#      docker build -t DOCKERHUB_USER/lakeflow-frontend:latest ./lake-flow-ui
+#      docker push DOCKERHUB_USER/lakeflow-backend:latest
+#      docker push DOCKERHUB_USER/lakeflow-frontend:latest
+#   2. Portainer: Stack → Add stack → Web editor → paste file này.
+#   3. Thêm Env vars trong Portainer: DOCKERHUB_USER (vd. lampx83), và biến từ .env (nếu có).
+# Không dùng: build, container_name, env_file (Portainer thường không có .env).
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.16.2
+    ports:
+      - "8013:6333"
+    volumes:
+      - lakeflow_qdrant_data:/qdrant/storage
+
+  lakeflow-backend:
+    image: docker.io/${DOCKERHUB_USER:-lampx83}/lakeflow-backend:latest
+    platform: linux/amd64
+    depends_on:
+      - qdrant
+    ports:
+      - "8011:8011"
+    environment:
+      LAKEFLOW_DATA_BASE_PATH: /data
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+    volumes:
+      - lakeflow_data:/data
+    command: uvicorn lakeflow.main:app --host 0.0.0.0 --port 8011
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  lakeflow-frontend:
+    image: docker.io/${DOCKERHUB_USER:-lampx83}/lakeflow-frontend:latest
+    platform: linux/amd64
+    depends_on:
+      lakeflow-backend:
+        condition: service_healthy
+    ports:
+      - "8012:8012"
+    environment:
+      API_BASE_URL: http://lakeflow-backend:8011
+    volumes:
+      - lakeflow_data:/data
+    command: streamlit run app.py --server.port 8012 --server.address 0.0.0.0
+
+volumes:
+  lakeflow_data:
+  lakeflow_qdrant_data:

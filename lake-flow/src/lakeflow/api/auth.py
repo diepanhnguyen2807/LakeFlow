@@ -21,5 +21,5 @@ def login(data: LoginRequest):
 
 @router.get("/me")
 def me(payload: dict = Depends(verify_token)):
-    """Trả về thông tin user hiện tại từ token (dùng để lọc lịch sử theo từng tài khoản)."""
+    """Return current user info from token (used to filter history by account)."""
     return {"username": payload["sub"]}

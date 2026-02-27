@@ -6,7 +6,7 @@ from lakeflow.pipelines.staging.pdf_analyzer import StagingError, analyze_pdf
 
 
 def _write_staging_error(staging_dir: Path, reason: str) -> None:
-    """Ghi lý do lỗi vào staging_error.txt để UI/người dùng xem sau."""
+    """Write error reason to staging_error.txt for UI/user to view later."""
     try:
         staging_dir.mkdir(parents=True, exist_ok=True)
         (staging_dir / "staging_error.txt").write_text(reason, encoding="utf-8")

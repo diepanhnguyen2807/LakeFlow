@@ -60,17 +60,17 @@ def main():
 
     processed_count = 0
 
-    # 200_staging: có thể là <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+    # 200_staging: can be <domain>/<file_hash>/ or (legacy) <file_hash>/
     def iter_staging_entries():
         for entry in staging_root.iterdir():
             if not entry.is_dir():
                 continue
             if (entry / "validation.json").exists():
-                yield entry  # cấu trúc cũ: staging_root/file_hash/
+                yield entry  # legacy: staging_root/file_hash/
             else:
                 for sub in entry.iterdir():
                     if sub.is_dir() and (sub / "validation.json").exists():
-                        yield sub  # cấu trúc mới: staging_root/domain/file_hash/
+                        yield sub  # new: staging_root/domain/file_hash/
 
     staging_dirs = list(iter_staging_entries())
     print(f"[DEBUG] Found {len(staging_dirs)} staging dirs")
@@ -82,12 +82,12 @@ def main():
         parent_name = staging_dir.parent.name if staging_dir.parent != staging_root else None
         rel_path = f"{parent_name}/{file_hash}" if parent_name else file_hash
 
-        # Lọc theo thư mục đã chọn trên cây: domain, domain/file_hash, hoặc file_hash (cấu trúc cũ)
+        # Filter by selected folder in tree: domain, domain/file_hash, or file_hash (legacy)
         if only_folders_set is not None:
             if rel_path in only_folders_set:
                 pass
             elif any(rel_path.startswith(p + "/") for p in only_folders_set):
-                pass  # chọn thư mục cha → chạy cả con
+                pass  # selected parent folder → run all children
             elif parent_name and parent_name in only_folders_set:
                 pass
             elif not parent_name and file_hash in only_folders_set:

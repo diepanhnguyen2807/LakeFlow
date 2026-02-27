@@ -57,17 +57,17 @@ def main():
 
     embedded = skipped = failed = 0
 
-    # 300_processed: <domain>/<file_hash>/ hoặc (cũ) <file_hash>/
+    # 300_processed: <domain>/<file_hash>/ or (legacy) <file_hash>/
     def iter_processed_entries():
         for entry in processed_root.iterdir():
             if not entry.is_dir() or entry.name.startswith("."):
                 continue
             if (entry / "chunks.json").exists():
-                yield entry  # cấu trúc cũ: processed_root/file_hash/
+                yield entry  # legacy: processed_root/file_hash/
             else:
                 for sub in entry.iterdir():
                     if sub.is_dir() and (sub / "chunks.json").exists():
-                        yield sub  # cấu trúc mới: processed_root/domain/file_hash/
+                        yield sub  # new: processed_root/domain/file_hash/
 
     processed_dirs = list(iter_processed_entries())
     print(f"[DEBUG] Found {len(processed_dirs)} processed dirs")

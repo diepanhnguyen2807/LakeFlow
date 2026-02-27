@@ -78,7 +78,7 @@ def ingest_file_embeddings(
     coll_name = (collection_name or "").strip() or COLLECTION_NAME
 
     # --------------------------------------------------
-    # Tìm processed_dir (có parent_dir thì không iterdir trên NAS)
+    # Find processed_dir (if parent_dir set, do not iterdir on NAS)
     # --------------------------------------------------
     processed_dir = nas_safe_find_processed_dir(processed_root, file_hash, parent_dir=parent_dir)
     if not processed_dir:
@@ -91,7 +91,7 @@ def ingest_file_embeddings(
     processed_chunks_file = processed_dir / "chunks.json"
 
     # --------------------------------------------------
-    # Copy 3 file từ NAS sang temp local (trong container), rồi đọc từ temp — tránh Errno 35
+    # Copy 3 files from NAS to temp local (in container), then read from temp — avoid Errno 35
     # --------------------------------------------------
     with tempfile.TemporaryDirectory(prefix="qdrant_ingest_") as tmp:
         tmp = Path(tmp)

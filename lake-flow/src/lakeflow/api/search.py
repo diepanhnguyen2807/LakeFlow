@@ -41,7 +41,7 @@ def embed_text(req: EmbedRequest) -> dict:
     return {
         "text": req.text,
         "vector": vec_list,
-        "embedding": vec_list,  # alias cho client chỉ đọc "embedding" (vd. Research Chat)
+        "embedding": vec_list,  # alias for client that only reads "embedding" (e.g. Research Chat)
         "dim": int(vector.shape[0]),
     }
 
@@ -128,7 +128,7 @@ def qa(req: QARequest, auth_payload: dict = Depends(verify_token)):
     Tin nhắn (câu hỏi) được ghi theo username để thống kê trong Admin.
     """
     # --------------------------------------------------
-    # 1. Semantic search để lấy context
+    # 1. Semantic search to get context
     # --------------------------------------------------
     model = get_embedding_model()
     
@@ -194,7 +194,7 @@ def qa(req: QARequest, auth_payload: dict = Depends(verify_token)):
             context_texts.append(context_text)
     
     # --------------------------------------------------
-    # 2. Build prompt với context
+    # 2. Build prompt with context
     # --------------------------------------------------
     context_block = "\n\n".join([
         f"[Context {i+1}]:\n{text}"
@@ -219,7 +219,7 @@ Câu hỏi: {req.question}
 Trả lời (chỉ dựa trên context trên):"""
     
     # --------------------------------------------------
-    # 3. Gọi LLM (Ollama proxy mặc định hoặc OpenAI)
+    # 3. Call LLM (Ollama proxy default or OpenAI)
     # --------------------------------------------------
     chat_url = f"{LLM_BASE_URL.rstrip('/')}/v1/chat/completions"
     llm_payload = {
@@ -257,11 +257,11 @@ Trả lời (chỉ dựa trên context trên):"""
             detail=f"Invalid LLM API response: {exc}",
         )
 
-    # Ghi tin nhắn theo user (để thống kê / xóa trong Admin)
+    # Save message by user (for stats / delete in Admin)
     try:
         insert_message(username=auth_payload["sub"], question=req.question)
     except Exception:
-        pass  # Không làm fail request Q&A nếu ghi DB lỗi
+        pass  # Do not fail Q&A request if DB write fails
 
     return {
         "question": req.question,

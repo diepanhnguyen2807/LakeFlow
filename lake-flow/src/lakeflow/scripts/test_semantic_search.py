@@ -15,7 +15,7 @@ import sys
 
 API_URL = "http://127.0.0.1:8011/search/semantic"
 
-# DÁN ACCESS TOKEN VÀO ĐÂY
+# PASTE ACCESS TOKEN HERE
 TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbiIsImV4cCI6MTc2OTE5MjM3OX0.r_P4ubr45-x5M7u4yrRIarwd71axXKEJPXlFV0Fkiao"
 
 # =========================

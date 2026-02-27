@@ -44,7 +44,7 @@ def run_embedding_pipeline(
         return "SKIPPED"
 
     # =====================================================
-    # 2. Load chunks (đọc từ NAS với retry)
+    # 2. Load chunks (read from NAS with retry)
     # =====================================================
     chunks = nas_safe_read_json(chunks_file)
     texts = [c["text"].strip() for c in chunks if c.get("text")]

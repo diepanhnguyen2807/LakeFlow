@@ -15,7 +15,7 @@ except ImportError:
 
 
 class StagingError(RuntimeError):
-    """Lỗi staging với lý do rõ ràng."""
+    """Staging error with clear reason."""
 
 
 def _resolve(obj):

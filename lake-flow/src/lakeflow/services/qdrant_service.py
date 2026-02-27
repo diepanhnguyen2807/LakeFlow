@@ -12,7 +12,7 @@ _client: Optional[QdrantClient] = None
 
 
 def get_client(qdrant_url: Optional[str] = None) -> QdrantClient:
-    """Client Qdrant. Nếu qdrant_url truyền vào thì dùng URL đó (không cache); không thì dùng mặc định từ env."""
+    """Qdrant client. If qdrant_url passed use that (no cache); else use default from env."""
     global _client
     if qdrant_url and (s := qdrant_url.strip()):
         url = s if s.startswith("http://") or s.startswith("https://") else f"http://{s}"
@@ -83,7 +83,7 @@ def _infer_payload_schema(client: QdrantClient, collection: str, sample_size: in
             if key not in schema:
                 schema[key] = t
             elif schema[key] != t:
-                # Nhiều kiểu khác nhau → dùng union hoặc "string" an toàn
+                # Multiple types → use union or "string" for safety
                 schema[key] = "string"
     return schema
 
@@ -95,7 +95,7 @@ def get_collection_detail(name: str, qdrant_url: Optional[str] = None) -> Dict[s
     vectors = {}
     params = info.config.params.vectors
 
-    # Trường hợp 1: single vector
+    # Case 1: single vector
     if hasattr(params, "size"):
         vectors = {
             "default": {
@@ -104,7 +104,7 @@ def get_collection_detail(name: str, qdrant_url: Optional[str] = None) -> Dict[s
             }
         }
 
-    # Trường hợp 2: named vectors
+    # Case 2: named vectors
     elif isinstance(params, dict):
         for k, v in params.items():
             vectors[k] = {
@@ -148,7 +148,7 @@ def list_points(
         limit=limit,
         offset=offset,
         with_payload=True,
-        with_vectors=False,  # inspector: không cần vector
+        with_vectors=False,  # inspector: no need for vector
     )
 
     return [_serialize_point(p) for p in points]
