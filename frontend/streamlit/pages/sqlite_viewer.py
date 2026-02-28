@@ -4,10 +4,6 @@ SQLite Database Viewer — xem catalog & ingest log (chế độ chỉ đọc).
 Truy cập nhanh từ sidebar.
 """
 
-import os
-import shutil
-import tempfile
-import time
 from pathlib import Path
 
 import streamlit as st
@@ -16,39 +12,11 @@ from config.settings import DATA_ROOT
 from state.session import require_login
 from utils.sqlite_viewer import (
     connect_readonly,
+    copy_db_to_temp,
     list_tables,
     get_table_schema,
     preview_table,
 )
-
-
-def _sqlite_copy_to_local(db_path: Path) -> Path:
-    """
-    Copy SQLite file từ NAS sang temp local — tránh disk I/O error trên NFS.
-    """
-    db_path = Path(db_path).resolve()
-    try:
-        local_temp_dir = Path(tempfile.gettempdir())
-    except Exception:
-        local_temp_dir = Path(".").resolve()
-    fd, temp_path = tempfile.mkstemp(suffix=".db", dir=local_temp_dir)
-    os.close(fd)
-    temp_path = Path(temp_path)
-    last_err = None
-    for attempt in range(3):
-        try:
-            shutil.copy2(db_path, temp_path)
-            if temp_path.stat().st_size != db_path.stat().st_size:
-                raise OSError("Copy size mismatch")
-            break
-        except Exception as e:
-            last_err = e
-            if attempt < 2:
-                time.sleep(1.0 * (attempt + 1))
-    else:
-        temp_path.unlink(missing_ok=True)
-        raise last_err
-    return temp_path
 
 
 def render():
@@ -92,7 +60,7 @@ def render():
     )
     if need_copy:
         try:
-            local_copy = _sqlite_copy_to_local(db_file)
+            local_copy = copy_db_to_temp(db_file)
             st.session_state[cache_key] = local_copy
             st.session_state[path_key] = db_resolved
         except Exception as exc:

@@ -11,6 +11,7 @@ import pandas as pd
 import streamlit as st
 
 from config.settings import DATA_ROOT
+from utils.sqlite_viewer import copy_db_to_temp
 from state.session import require_login
 from services.api_client import get_me, admin_list_users, admin_delete_user_messages
 
@@ -47,36 +48,41 @@ def _count_inbox_files() -> int:
     return total
 
 
-@st.cache_data(ttl=CACHE_TTL)
-def _count_raw_objects_catalog() -> int | None:
-    """Đếm số bản ghi trong raw_objects (catalog)."""
+def _read_catalog_count(table: str) -> int | None:
+    """Đọc COUNT từ catalog — copy DB ra temp tránh Errno 35 (resource deadlock)."""
+    if table not in ("raw_objects", "ingest_log"):
+        return None
     db = DATA_ROOT / "500_catalog" / "catalog.sqlite"
     if not db.exists():
         return None
+    temp_path = None
     try:
-        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
-        cur = conn.execute("SELECT COUNT(*) FROM raw_objects")
+        temp_path = copy_db_to_temp(db)
+        conn = sqlite3.connect(str(temp_path), timeout=5)
+        cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
         n = cur.fetchone()[0]
         conn.close()
         return n
     except Exception:
         return None
+    finally:
+        if temp_path and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+
+
+@st.cache_data(ttl=CACHE_TTL)
+def _count_raw_objects_catalog() -> int | None:
+    """Đếm số bản ghi trong raw_objects (catalog)."""
+    return _read_catalog_count("raw_objects")
 
 
 @st.cache_data(ttl=CACHE_TTL)
 def _count_ingest_log() -> int | None:
     """Đếm số bản ghi ingest_log."""
-    db = DATA_ROOT / "500_catalog" / "catalog.sqlite"
-    if not db.exists():
-        return None
-    try:
-        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
-        cur = conn.execute("SELECT COUNT(*) FROM ingest_log")
-        n = cur.fetchone()[0]
-        conn.close()
-        return n
-    except Exception:
-        return None
+    return _read_catalog_count("ingest_log")
 
 
 @st.cache_data(ttl=CACHE_TTL)

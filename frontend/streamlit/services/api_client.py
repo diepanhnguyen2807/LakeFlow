@@ -114,5 +114,13 @@ def qa(
         headers=headers,
         timeout=90,  # Q&A: embedding + search + LLM
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        detail = None
+        try:
+            data = resp.json()
+            detail = data.get("detail")
+        except Exception:
+            pass
+        err_msg = detail if detail else resp.text or resp.reason
+        raise RuntimeError(f"{resp.status_code}: {err_msg}")
     return resp.json()

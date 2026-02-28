@@ -12,6 +12,7 @@ import streamlit as st
 from config.settings import DATA_ROOT
 from state.session import require_login
 from services.api_client import get_data_path_from_api
+from utils.sqlite_viewer import copy_db_to_temp
 
 # File viewer: giới hạn kích thước (tránh treo)
 MAX_VIEW_TEXT_BYTES = 10 * 1024 * 1024   # 10 MB cho txt/json/jsonl
@@ -127,16 +128,24 @@ def get_inbox_file_pipeline_steps(file_path: Path, domain: str) -> dict[str, str
         return result
     root = DATA_ROOT
     catalog_db = root / "500_catalog" / "catalog.sqlite"
-    # Step 0: Ingest (đã có trong raw_objects)
+    # Step 0: Ingest (đã có trong raw_objects) — copy DB ra temp tránh Errno 35
+    temp_path = None
     try:
         if catalog_db.exists():
-            conn = sqlite3.connect(f"file:{catalog_db}?mode=ro", uri=True, timeout=5)
+            temp_path = copy_db_to_temp(catalog_db)
+            conn = sqlite3.connect(str(temp_path), timeout=5)
             cur = conn.execute("SELECT 1 FROM raw_objects WHERE hash = ? LIMIT 1", (file_hash,))
             if cur.fetchone():
                 result["Ingest"] = "✓"
             conn.close()
     except Exception:
         pass
+    finally:
+        if temp_path and Path(temp_path).exists():
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
     if result["Ingest"] != "✓":
         return result
     # Steps 1–3: kiểm tra thư mục; hỗ trợ cả domain/hash và hash (cấu trúc cũ)
@@ -370,14 +379,22 @@ def get_pipeline_step_for_path(
     if not catalog_db.exists():
         return "Catalog chưa có (chưa chạy Step 0)"
 
+    temp_path = None
     try:
-        conn = sqlite3.connect(f"file:{catalog_db}?mode=ro", uri=True, timeout=5)
+        temp_path = copy_db_to_temp(catalog_db)
+        conn = sqlite3.connect(str(temp_path), timeout=5)
         cur = conn.execute("SELECT 1 FROM raw_objects WHERE hash = ? LIMIT 1", (file_hash,))
         if cur.fetchone():
             step = 0
         conn.close()
     except Exception:
         return "Không đọc được Catalog"
+    finally:
+        if temp_path and Path(temp_path).exists():
+            try:
+                Path(temp_path).unlink()
+            except OSError:
+                pass
 
     if step < 0:
         return "Chưa có trong Catalog (chưa chạy Step 0)"

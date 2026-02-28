@@ -6,6 +6,7 @@ from typing import Optional
 import requests
 
 from config.settings import API_BASE, DATA_ROOT
+from utils.sqlite_viewer import copy_db_to_temp
 
 # Bước nào dùng cây thư mục (chọn con/cháu); bước còn lại dùng danh sách phẳng (file_hash)
 STEPS_WITH_TREE = ("step0", "step1", "step2", "step3", "step4")
@@ -117,14 +118,22 @@ def get_pipeline_file_step_done(step: str, relative_path: str, file_name: str) -
         db = root / "500_catalog" / "catalog.sqlite"
         if not db.exists():
             return ""
+        temp_path = None
         try:
-            conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=5)
+            temp_path = copy_db_to_temp(db)
+            conn = sqlite3.connect(str(temp_path), timeout=5)
             cur = conn.execute("SELECT 1 FROM raw_objects WHERE hash = ? LIMIT 1", (file_hash,))
             out = "✓" if cur.fetchone() else ""
             conn.close()
             return out
         except Exception:
             return ""
+        finally:
+            if temp_path and Path(temp_path).exists():
+                try:
+                    Path(temp_path).unlink()
+                except OSError:
+                    pass
 
     if step == "step1":
         file_hash = Path(file_name).stem

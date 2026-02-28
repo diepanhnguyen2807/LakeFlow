@@ -2,37 +2,18 @@
 
 import pandas as pd
 import streamlit as st
-from datetime import datetime
 
 from config.settings import qdrant_service_options, normalize_qdrant_url
-from services.api_client import qa, get_me
+from services.api_client import qa
 from services.qdrant_service import list_collections
 from state.session import require_login
-
-
-def _ensure_qa_history_by_user():
-    if "qa_history_by_user" not in st.session_state:
-        st.session_state.qa_history_by_user = {}
-
-
-def _current_username(token: str) -> str | None:
-    """Username của tài khoản đang đăng nhập (để chỉ hiển thị lịch sử của user này)."""
-    if "current_username" in st.session_state and st.session_state.current_username:
-        return st.session_state.current_username
-    me = get_me(token)
-    if me and me.get("username"):
-        st.session_state.current_username = me["username"]
-        return me["username"]
-    return None
 
 
 def render():
     if not require_login():
         return
 
-    _ensure_qa_history_by_user()
     token = st.session_state.token
-    current_user = _current_username(token)
 
     st.header("🤖 Hỏi đáp với AI")
     st.caption(
@@ -41,31 +22,6 @@ def render():
         "(3) AI **chỉ được trả lời dựa trên context được cung cấp** — không dùng kiến thức bên ngoài. "
         "Nếu context không đủ, AI sẽ nói rõ không có thông tin. Trả lời bằng tiếng Việt."
     )
-
-    # --------------------------------------------------
-    # Lịch sử trò chuyện (chỉ của tài khoản hiện tại)
-    # --------------------------------------------------
-    with st.expander("📜 Lịch sử trò chuyện", expanded=False):
-        if not current_user:
-            st.caption("Không xác định được tài khoản (token). Chỉ hiển thị lịch sử của phiên này.")
-            history_list = st.session_state.qa_history_by_user.get("__session__", [])
-        else:
-            st.caption(f"Lịch sử của tài khoản **{current_user}**.")
-            history_list = st.session_state.qa_history_by_user.get(current_user, [])
-        if not history_list:
-            st.info("Chưa có lịch sử. Hỏi AI để lưu vào đây.")
-        else:
-            for i, item in enumerate(reversed(history_list[-50:])):  # 50 gần nhất
-                raw_created = item.get("created_at", "")
-                created = str(raw_created)[:19] if raw_created else ""
-                raw_q = item.get("question", "") or ""
-                q = (raw_q[:60] + "...") if len(raw_q) > 60 else raw_q
-                label = f"{created} - {q}" if (created or q) else f"Lich su #{i+1}"
-                with st.expander(label, expanded=False, key=f"qa_history_{i}"):
-                    st.write("**Câu hỏi:**")
-                    st.write(item.get("question", ""))
-                    st.write("**Trả lời:**")
-                    st.markdown(item.get("answer", ""))
 
     # --------------------------------------------------
     # Qdrant Service + PARAMS
@@ -161,16 +117,17 @@ def render():
                     st.session_state.qa_last_result = data
                     st.session_state.qa_last_question = question.strip()
                     st.session_state.qa_feedback = None
-                    # Lưu vào lịch sử chỉ cho tài khoản hiện tại
-                    user_key = current_user if current_user else "__session__"
-                    st.session_state.qa_history_by_user.setdefault(user_key, []).append({
-                        "question": question.strip(),
-                        "answer": data.get("answer") or "",
-                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    })
                     data_to_show = data
                 except Exception as exc:
-                    st.error(f"Lỗi khi gọi API: {exc}")
+                    err_msg = str(exc)
+                    st.error(f"Lỗi khi gọi API: {err_msg}")
+                    if "Curl để test:" in err_msg or "Curl đã chạy:" in err_msg:
+                        sep = "Curl để test:" if "Curl để test:" in err_msg else "Curl đã chạy:"
+                        parts = err_msg.split(sep, 1)
+                        if len(parts) > 1:
+                            curl_part = parts[1].split("\n\nLỗi:")[0].split("\n\nKhông tìm")[0].strip()
+                            with st.expander("📋 Lệnh curl (sao chép để test)"):
+                                st.code(curl_part, language="bash")
 
     if data_to_show is None and st.session_state.get("qa_last_result"):
         data_to_show = st.session_state.qa_last_result
@@ -190,6 +147,28 @@ def render():
             st.caption(f"Model: **{model_used}**")
 
         st.markdown(answer)
+
+        # ---------- Debug: Curl commands + tiến độ các bước ----------
+        debug_info = data.get("debug_info")
+        if debug_info:
+            with st.expander("🔧 Lệnh curl để test + tiến độ các bước", expanded=True):
+                steps = debug_info.get("steps_completed", [])
+                st.markdown("**✅ Đã chạy đến:**")
+                for s in steps:
+                    st.markdown(f"- {s}")
+                st.markdown("---")
+                st.markdown("**1. Embed câu hỏi (Ollama)**")
+                curl_embed = debug_info.get("curl_embed")
+                if curl_embed:
+                    st.code(curl_embed, language="bash")
+                st.markdown("**2. Search (Qdrant)**")
+                curl_search = debug_info.get("curl_search")
+                if curl_search:
+                    st.code(curl_search, language="bash")
+                st.markdown("**3. Complete (LLM)**")
+                curl_complete = debug_info.get("curl_complete")
+                if curl_complete:
+                    st.code(curl_complete, language="bash")
 
         # ---------- Like / Dislike (bấm lại cùng nút = xóa, hai nút hiện bình thường) ----------
         feedback = st.session_state.get("qa_feedback") or None

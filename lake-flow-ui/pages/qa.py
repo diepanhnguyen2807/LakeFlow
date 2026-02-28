@@ -2,37 +2,18 @@
 
 import pandas as pd
 import streamlit as st
-from datetime import datetime
 
 from config.settings import qdrant_service_options, normalize_qdrant_url
-from services.api_client import qa, get_me
+from services.api_client import qa
 from services.qdrant_service import list_collections
 from state.session import require_login
-
-
-def _ensure_qa_history_by_user():
-    if "qa_history_by_user" not in st.session_state:
-        st.session_state.qa_history_by_user = {}
-
-
-def _current_username(token: str) -> str | None:
-    """Username of logged-in account (to show only this user's history)."""
-    if "current_username" in st.session_state and st.session_state.current_username:
-        return st.session_state.current_username
-    me = get_me(token)
-    if me and me.get("username"):
-        st.session_state.current_username = me["username"]
-        return me["username"]
-    return None
 
 
 def render():
     if not require_login():
         return
 
-    _ensure_qa_history_by_user()
     token = st.session_state.token
-    current_user = _current_username(token)
 
     st.header("🤖 Hỏi đáp với AI")
     st.caption(
@@ -41,31 +22,6 @@ def render():
         "(3) AI **chỉ được trả lời dựa trên context được cung cấp** — không dùng kiến thức bên ngoài. "
         "Nếu context không đủ, AI sẽ nói rõ không có thông tin. Trả lời bằng tiếng Việt."
     )
-
-    # --------------------------------------------------
-    # Chat history (current account only)
-    # --------------------------------------------------
-    with st.expander("📜 Lịch sử trò chuyện", expanded=False):
-        if not current_user:
-            st.caption("Không xác định được tài khoản (token). Chỉ hiển thị lịch sử của phiên này.")
-            history_list = st.session_state.qa_history_by_user.get("__session__", [])
-        else:
-            st.caption(f"Lịch sử của tài khoản **{current_user}**.")
-            history_list = st.session_state.qa_history_by_user.get(current_user, [])
-        if not history_list:
-            st.info("Chưa có lịch sử. Hỏi AI để lưu vào đây.")
-        else:
-            for i, item in enumerate(reversed(history_list[-50:])):  # last 50
-                raw_created = item.get("created_at", "")
-                created = str(raw_created)[:19] if raw_created else ""
-                raw_q = item.get("question", "") or ""
-                q = (raw_q[:60] + "...") if len(raw_q) > 60 else raw_q
-                label = f"{created} - {q}" if (created or q) else f"Lich su #{i+1}"
-                with st.expander(label, expanded=False, key=f"qa_history_{i}"):
-                    st.write("**Câu hỏi:**")
-                    st.write(item.get("question", ""))
-                    st.write("**Trả lời:**")
-                    st.markdown(item.get("answer", ""))
 
     # --------------------------------------------------
     # Qdrant Service + PARAMS
@@ -161,13 +117,6 @@ def render():
                     st.session_state.qa_last_result = data
                     st.session_state.qa_last_question = question.strip()
                     st.session_state.qa_feedback = None
-                    # Save to history for current account only
-                    user_key = current_user if current_user else "__session__"
-                    st.session_state.qa_history_by_user.setdefault(user_key, []).append({
-                        "question": question.strip(),
-                        "answer": data.get("answer") or "",
-                        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    })
                     data_to_show = data
                 except Exception as exc:
                     st.error(f"Lỗi khi gọi API: {exc}")

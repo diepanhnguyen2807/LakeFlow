@@ -8,8 +8,10 @@ import requests
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from lakeflow.api.deps import get_embedding_model
-from lakeflow.core.config import get_qdrant_url, LLM_BASE_URL, LLM_MODEL, OPENAI_API_KEY
+from lakeflow.common.text_normalizer import canonicalize_text
+from lakeflow.core.config import get_qdrant_url
+from lakeflow.services.ollama_embed_service import embed_batch
+from lakeflow.services.llm_chat_service import chat_completion
 from lakeflow.services.qdrant_service import get_client
 
 ADMISSION_COLLECTION = "Admission"
@@ -137,9 +139,9 @@ def ask(req: AskRequest):
     if not prompt:
         raise HTTPException(status_code=400, detail="prompt khong duoc de trong")
 
-    # 1. Embed query
-    model = get_embedding_model()
-    query_vector = model.encode(prompt, normalize_embeddings=True).tolist()
+    # 1. Embed query (dùng Ollama qwen3-embedding - khớp với collection Admission)
+    expanded = canonicalize_text(prompt)
+    query_vector = embed_batch([expanded])[0]
 
     # 2. Search Qdrant
     base = get_qdrant_url(None)
@@ -165,9 +167,11 @@ def ask(req: AskRequest):
 
     if not points:
         return {
-            "answer": "Theo cac tai lieu duoc cung cap, khong co thong tin de tra loi cau hoi nay.",
-            "contexts": [],
-            "model_used": LLM_MODEL,
+            "session_id": req.session_id,
+            "status": "success",
+            "content_markdown": "Theo cac tai lieu duoc cung cap, khong co thong tin de tra loi cau hoi nay.",
+            "meta": {"model": LLM_MODEL},
+            "attachments": [],
         }
 
     context_texts = []
@@ -206,30 +210,16 @@ Cau hoi: {prompt}
 
 Tra loi (chi dua tren context tren):"""
 
-    chat_url = f"{LLM_BASE_URL.rstrip('/')}/v1/chat/completions"
-    llm_payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.3,
-        "max_tokens": 1000,
-    }
-    headers = {"Content-Type": "application/json"}
-    if OPENAI_API_KEY:
-        headers["Authorization"] = f"Bearer {OPENAI_API_KEY}"
-
     t0 = time.time()
     try:
-        llm_resp = requests.post(chat_url, json=llm_payload, headers=headers, timeout=60)
-        llm_resp.raise_for_status()
-        llm_data = llm_resp.json()
-        answer = llm_data["choices"][0]["message"]["content"]
-        model_used = llm_data.get("model", LLM_MODEL)
-        usage = llm_data.get("usage", {})
-        prompt_tokens = usage.get("prompt_tokens")
-        completion_tokens = usage.get("completion_tokens")
+        answer, model_used = chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.3,
+            max_tokens=1000,
+        )
     except requests.RequestException as exc:
         raise HTTPException(
             status_code=500,
@@ -243,10 +233,8 @@ Tra loi (chi dua tren context tren):"""
 
     response_time_ms = int((time.time() - t0) * 1000)
     tokens_used = None
-    if prompt_tokens is not None and completion_tokens is not None:
-        tokens_used = prompt_tokens + completion_tokens
 
-    # Format tuong thich Research Chat: status, content_markdown, meta
+    # Format tuong thich Research Chat: chi content_markdown
     return {
         "session_id": req.session_id,
         "status": "success",
@@ -257,7 +245,4 @@ Tra loi (chi dua tren context tren):"""
             "tokens_used": tokens_used,
         },
         "attachments": [],
-        # Giu them cho client LakeFlow neu can
-        "answer": answer,
-        "contexts": contexts,
     }

@@ -15,6 +15,42 @@ NAS_RETRIES = 8
 NAS_RETRY_DELAY = 1.5
 
 
+def nas_safe_exists(path: Path) -> bool:
+    """Path.exists() với retry — tránh Errno 35 trên NAS/volume chia sẻ."""
+    for attempt in range(NAS_RETRIES):
+        try:
+            return path.exists()
+        except OSError:
+            if attempt == NAS_RETRIES - 1:
+                raise
+            time.sleep(NAS_RETRY_DELAY * (attempt + 1))
+    return False  # unreachable
+
+
+def nas_safe_is_dir(path: Path) -> bool:
+    """Path.is_dir() với retry — tránh Errno 35 trên NAS/volume chia sẻ."""
+    for attempt in range(NAS_RETRIES):
+        try:
+            return path.is_dir()
+        except OSError:
+            if attempt == NAS_RETRIES - 1:
+                raise
+            time.sleep(NAS_RETRY_DELAY * (attempt + 1))
+    return False  # unreachable
+
+
+def nas_safe_listdir(path: Path) -> list[Path]:
+    """path.iterdir() thành list với retry — tránh Errno 35 trên NAS/volume chia sẻ."""
+    for attempt in range(NAS_RETRIES):
+        try:
+            return list(path.iterdir())
+        except OSError:
+            if attempt == NAS_RETRIES - 1:
+                raise
+            time.sleep(NAS_RETRY_DELAY * (attempt + 1))
+    return []  # unreachable
+
+
 def nas_safe_read_json(path: Path) -> Any:
     for attempt in range(NAS_RETRIES):
         try:

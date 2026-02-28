@@ -137,6 +137,14 @@ class QARequest(BaseModel):
     )
 
 
+class QADebugInfo(BaseModel):
+    """Thông tin debug: curl commands và tiến độ các bước."""
+    steps_completed: List[str] = Field(default_factory=list)
+    curl_embed: Optional[str] = None
+    curl_search: Optional[str] = None
+    curl_complete: Optional[str] = None
+
+
 class QAResponse(BaseModel):
     """
     Response cho API Q&A
@@ -150,4 +158,8 @@ class QAResponse(BaseModel):
     model_used: Optional[str] = Field(
         None,
         description="Model LLM được sử dụng"
+    )
+    debug_info: Optional[QADebugInfo] = Field(
+        None,
+        description="Curl commands để test từng bước + tiến độ đã chạy"
     )

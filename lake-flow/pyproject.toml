@@ -28,8 +28,6 @@ full = [
   "pandas>=2.0.0",
   "numpy>=1.26.0",
   "PyPDF2>=3.0.0",
-  "pdfplumber>=0.11.0",
-  "python-docx>=1.1.0",
   "openpyxl>=3.1.0",
   "sentence-transformers>=2.2.2",
   "transformers>=4.36.0",
@@ -39,8 +37,6 @@ full = [
   "requests>=2.31.0",
   "passlib[bcrypt]>=1.7.4",
   "python-jose>=3.3.0",
-  "tqdm>=4.66.0",
-  "loguru>=0.7.2",
 ]
 
 [project.scripts]

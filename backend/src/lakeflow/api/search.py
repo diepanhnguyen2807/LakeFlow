@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, HTTPException, Depends
 import requests
 
@@ -8,14 +9,16 @@ from lakeflow.api.schemas.search import (
     SemanticSearchResponse,
     QARequest,
     QAResponse,
+    QADebugInfo,
 )
 
 from lakeflow.common.text_normalizer import canonicalize_text
-from lakeflow.services.ollama_embed_service import embed_batch
+from lakeflow.services.ollama_embed_service import embed_batch, OLLAMA_EMBED_URL, EMBED_MODEL
 from lakeflow.core.auth import verify_token
 from lakeflow.catalog.app_db import insert_message
 from lakeflow.vectorstore.constants import COLLECTION_NAME as DEFAULT_COLLECTION_NAME
 from lakeflow.core.config import get_qdrant_url, LLM_BASE_URL, LLM_MODEL, OPENAI_API_KEY
+from lakeflow.services.llm_chat_service import chat_completion, USE_OLLAMA_NATIVE_CHAT
 
 router = APIRouter(
     prefix="/search",
@@ -108,6 +111,52 @@ def semantic_search(req: SemanticSearchRequest):
     }
 
 
+def _curl_multiline(url: str, payload_obj: dict, *, auth: bool = False) -> str:
+    """Tạo lệnh curl đa dòng: curl URL \\ -H ... \\ -d '{...}'"""
+    payload = json.dumps(payload_obj, ensure_ascii=False, indent=2)
+    payload_escaped = payload.replace("'", "'\"'\"'")
+    lines = [f"curl '{url}' \\", '  -H "Content-Type: application/json" \\']
+    if auth:
+        lines.append('  -H "Authorization: Bearer $OPENAI_API_KEY" \\')
+    lines.append(f"  -d '{payload_escaped}'")
+    return "\n".join(lines)
+
+
+def _curl_embed(question: str) -> str:
+    payload_obj = {"model": EMBED_MODEL, "input": [question]}
+    return _curl_multiline(OLLAMA_EMBED_URL, payload_obj)
+
+
+def _curl_search(qdrant_base: str, coll: str, vector: list, top_k: int, score_threshold: float | None) -> str:
+    body: dict = {"vector": vector, "limit": top_k, "with_payload": True, "with_vector": False}
+    if score_threshold is not None:
+        body["score_threshold"] = score_threshold
+    url = f"{qdrant_base.rstrip('/')}/collections/{coll}/points/search"
+    return _curl_multiline(url, body)
+
+
+def _curl_complete(messages: list, temperature: float, max_tokens: int) -> str:
+    """Curl complete: format chuẩn, khớp endpoint backend đang dùng."""
+    base = LLM_BASE_URL.rstrip("/")
+    if USE_OLLAMA_NATIVE_CHAT:
+        url = f"{base}/api/chat"
+        payload_obj = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "stream": False,
+            "options": {"temperature": temperature, "num_predict": 1000},
+        }
+    else:
+        url = f"{base}/v1/chat/completions"
+        payload_obj = {
+            "model": LLM_MODEL,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+    return _curl_multiline(url, payload_obj, auth=bool(OPENAI_API_KEY))
+
+
 @router.post(
     "/qa",
     response_model=QAResponse,
@@ -116,16 +165,28 @@ def qa(req: QARequest, auth_payload: dict = Depends(verify_token)):
     """
     Q&A với RAG: Tìm context từ semantic search, sau đó dùng LLM để trả lời.
     Tin nhắn (câu hỏi) được ghi theo username để thống kê trong Admin.
+    Trả về debug_info gồm curl commands và tiến độ các bước.
     """
+    steps_done: list[str] = []
+    curl_embed = _curl_embed(req.question)
+
     # --------------------------------------------------
-    # 1. Semantic search để lấy context
+    # 1. Embed query (vector hóa câu hỏi)
     # --------------------------------------------------
-    expanded_query = canonicalize_text(req.question)    
-    query_vector = embed_batch([expanded_query])[0]
-    
+    expanded_query = canonicalize_text(req.question)
+    try:
+        query_vector = embed_batch([expanded_query])[0]
+    except (RuntimeError, requests.RequestException) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Bước 1 (Embed) thất bại. Curl để test:\n{curl_embed}\n\nLỗi: {exc}"
+        )
+
+    steps_done.append("1. Embed câu hỏi (Ollama)")
     base = get_qdrant_url(req.qdrant_url)
     coll = (req.collection_name or DEFAULT_COLLECTION_NAME).strip() or DEFAULT_COLLECTION_NAME
     url = f"{base}/collections/{coll}/points/search"
+    curl_search = _curl_search(base, coll, query_vector, req.top_k, req.score_threshold)
 
     search_body = {
         "vector": query_vector,
@@ -146,16 +207,17 @@ def qa(req: QARequest, auth_payload: dict = Depends(verify_token)):
     except requests.RequestException as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Qdrant search failed: {exc}"
+            detail=f"Bước 2 (Qdrant Search) thất bại. Curl để test:\n{curl_search}\n\nLỗi: {exc}"
         )
 
+    steps_done.append("2. Tìm context (Qdrant)")
     data = resp.json()
     points = data.get("result", [])
 
     if not points:
         raise HTTPException(
             status_code=404,
-            detail="Không tìm thấy context phù hợp để trả lời câu hỏi"
+            detail=f"Bước 2 hoàn thành nhưng không tìm thấy context. Curl đã chạy:\n{curl_search}\n\nKhông tìm thấy document nào phù hợp."
         )
 
     # Parse context results
@@ -203,45 +265,34 @@ QUY TẮC BẮT BUỘC:
 Câu hỏi: {req.question}
 
 Trả lời (chỉ dựa trên context trên):"""
-    
-    # --------------------------------------------------
-    # 3. Gọi LLM (Ollama proxy mặc định hoặc OpenAI)
-    # --------------------------------------------------
-    chat_url = f"{LLM_BASE_URL.rstrip('/')}/v1/chat/completions"
-    llm_payload = {
-        "model": LLM_MODEL,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": req.temperature,
-        "max_tokens": 1000,
-    }
-    headers = {"Content-Type": "application/json"}
-    if OPENAI_API_KEY:
-        headers["Authorization"] = f"Bearer {OPENAI_API_KEY}"
 
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    curl_complete = _curl_complete(messages, req.temperature, 1000)
+
+    # --------------------------------------------------
+    # 3. Gọi LLM (OpenAI-compatible hoặc native Ollama /api/chat)
+    # --------------------------------------------------
     try:
-        llm_resp = requests.post(
-            chat_url,
-            json=llm_payload,
-            headers=headers,
-            timeout=60,
+        answer, model_used = chat_completion(
+            messages=messages,
+            temperature=req.temperature,
+            max_tokens=1000,
         )
-        llm_resp.raise_for_status()
-        llm_data = llm_resp.json()
-        answer = llm_data["choices"][0]["message"]["content"]
-        model_used = llm_data.get("model", LLM_MODEL)
     except requests.RequestException as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"LLM API call failed: {exc}",
+            detail=f"Bước 3 (LLM Complete) thất bại. Curl để test:\n{curl_complete}\n\nLỗi: {exc}",
         )
     except (KeyError, IndexError) as exc:
         raise HTTPException(
             status_code=500,
-            detail=f"Invalid LLM API response: {exc}",
+            detail=f"Bước 3 (LLM Complete) — phản hồi không hợp lệ. Curl đã chạy:\n{curl_complete}\n\nLỗi: {exc}",
         )
+
+    steps_done.append("3. Gọi LLM (Complete)")
 
     # Ghi tin nhắn theo user (để thống kê / xóa trong Admin)
     try:
@@ -254,4 +305,10 @@ Trả lời (chỉ dựa trên context trên):"""
         "answer": answer,
         "contexts": contexts,
         "model_used": model_used,
+        "debug_info": QADebugInfo(
+            steps_completed=steps_done,
+            curl_embed=curl_embed,
+            curl_search=curl_search,
+            curl_complete=curl_complete,
+        ),
     }

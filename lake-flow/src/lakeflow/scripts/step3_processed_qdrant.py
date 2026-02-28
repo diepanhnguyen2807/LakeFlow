@@ -16,7 +16,7 @@ load_dotenv()
 import numpy as np
 from qdrant_client import QdrantClient
 
-from lakeflow.common.nas_io import nas_safe_load_npy
+from lakeflow.common.nas_io import nas_safe_exists, nas_safe_is_dir, nas_safe_listdir, nas_safe_load_npy
 from lakeflow.runtime.config import runtime_config
 from lakeflow.config import paths
 from lakeflow.vectorstore.qdrant_ingest import (
@@ -63,12 +63,12 @@ def main():
     print(f"[DEBUG] EMBEDDINGS_PATH = {embeddings_root}")
     print(f"[DEBUG] PROCESSED_PATH  = {processed_root}")
 
-    if not embeddings_root.exists():
+    if not nas_safe_exists(embeddings_root):
         raise RuntimeError(
             f"EMBEDDINGS_PATH does not exist: {embeddings_root}"
         )
 
-    if not processed_root.exists():
+    if not nas_safe_exists(processed_root):
         raise RuntimeError(
             f"PROCESSED_PATH does not exist: {processed_root}"
         )
@@ -98,15 +98,16 @@ def main():
     ingested = skipped = failed = 0
 
     # 400_embeddings: <domain>/<file_hash>/ or (legacy) <file_hash>/
+    # Use nas_safe_* to avoid Errno 35 (resource deadlock) on NAS/shared volume
     def iter_embeddings_entries():
-        for entry in embeddings_root.iterdir():
-            if not entry.is_dir() or entry.name.startswith("."):
+        for entry in nas_safe_listdir(embeddings_root):
+            if not nas_safe_is_dir(entry) or entry.name.startswith("."):
                 continue
-            if (entry / "embedding.npy").exists():
+            if nas_safe_exists(entry / "embedding.npy"):
                 yield entry  # legacy: embeddings_root/file_hash/
             else:
-                for sub in entry.iterdir():
-                    if sub.is_dir() and (sub / "embedding.npy").exists():
+                for sub in nas_safe_listdir(entry):
+                    if nas_safe_is_dir(sub) and nas_safe_exists(sub / "embedding.npy"):
                         yield sub  # new: embeddings_root/domain/file_hash/
 
     emb_dirs = list(iter_embeddings_entries())
@@ -140,7 +141,7 @@ def main():
         print(f"\n[QDRANT] Processing {file_hash}")
 
         # ---------- Skip: no embedding ----------
-        if not embeddings_file.exists():
+        if not nas_safe_exists(embeddings_file):
             print(f"[QDRANT][SKIP] No embedding.npy for {file_hash}")
             skipped += 1
             continue
