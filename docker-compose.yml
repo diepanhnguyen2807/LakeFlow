@@ -24,6 +24,9 @@ services:
       - qdrant
     ports:
       - "8011:8011"
+    # Linux: host.docker.internal không có sẵn, cần extra_hosts để resolve
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - .env
     environment:
