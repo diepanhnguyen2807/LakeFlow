@@ -136,5 +136,13 @@ export const vi: Record<string, string> = {
   "docs.intro.quickLinks": "Liên kết nhanh",
   "docs.intro.github": "GitHub — Lampx83/LakeFlow",
   "docs.intro.pypi": "PyPI — lake-flow-pipeline",
+  "docs.intro.swaggerUi": "Swagger UI: http://localhost:8011/docs (khi backend chạy)",
+  "docs.intro.redoc": "ReDoc: http://localhost:8011/redoc",
   "docs.intro.next": "Tiếp:",
+  "docs.pages.gettingStarted.title": "Bắt đầu",
+  "docs.pages.backendApi.title": "Backend API",
+  "docs.pages.frontendUi.title": "Frontend (Streamlit)",
+  "docs.pages.dataLake.title": "Kiến trúc Data Lake",
+  "docs.pages.configuration.title": "Cấu hình",
+  "docs.pages.deployment.title": "Triển khai",
 };

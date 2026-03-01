@@ -136,5 +136,13 @@ export const zh: Record<string, string> = {
   "docs.intro.quickLinks": "快速链接",
   "docs.intro.github": "GitHub — Lampx83/LakeFlow",
   "docs.intro.pypi": "PyPI — lake-flow-pipeline",
+  "docs.intro.swaggerUi": "Swagger UI: http://localhost:8011/docs（后端运行时）",
+  "docs.intro.redoc": "ReDoc: http://localhost:8011/redoc",
   "docs.intro.next": "下一步：",
+  "docs.pages.gettingStarted.title": "入门指南",
+  "docs.pages.backendApi.title": "后端 API",
+  "docs.pages.frontendUi.title": "前端 (Streamlit)",
+  "docs.pages.dataLake.title": "数据湖架构",
+  "docs.pages.configuration.title": "配置",
+  "docs.pages.deployment.title": "部署",
 };

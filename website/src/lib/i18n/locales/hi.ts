@@ -140,5 +140,13 @@ export const hi: Record<string, string> = {
   "docs.intro.quickLinks": "त्वरित लिंक",
   "docs.intro.github": "GitHub — Lampx83/LakeFlow",
   "docs.intro.pypi": "PyPI — lake-flow-pipeline",
+  "docs.intro.swaggerUi": "Swagger UI: http://localhost:8011/docs (जब बैकएंड चल रहा हो)",
+  "docs.intro.redoc": "ReDoc: http://localhost:8011/redoc",
   "docs.intro.next": "अगला:",
+  "docs.pages.gettingStarted.title": "शुरुआत",
+  "docs.pages.backendApi.title": "बैकएंड API",
+  "docs.pages.frontendUi.title": "फ्रंटएंड (Streamlit)",
+  "docs.pages.dataLake.title": "Data Lake आर्किटेक्चर",
+  "docs.pages.configuration.title": "कॉन्फ़िगरेशन",
+  "docs.pages.deployment.title": "डेप्लॉइमेंट",
 };

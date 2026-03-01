@@ -140,5 +140,13 @@ export const es: Record<string, string> = {
   "docs.intro.quickLinks": "Enlaces rápidos",
   "docs.intro.github": "GitHub — Lampx83/LakeFlow",
   "docs.intro.pypi": "PyPI — lake-flow-pipeline",
+  "docs.intro.swaggerUi": "Swagger UI: http://localhost:8011/docs (cuando el backend está en ejecución)",
+  "docs.intro.redoc": "ReDoc: http://localhost:8011/redoc",
   "docs.intro.next": "Siguiente:",
+  "docs.pages.gettingStarted.title": "Primeros pasos",
+  "docs.pages.backendApi.title": "API del backend",
+  "docs.pages.frontendUi.title": "Frontend (Streamlit)",
+  "docs.pages.dataLake.title": "Arquitectura Data Lake",
+  "docs.pages.configuration.title": "Configuración",
+  "docs.pages.deployment.title": "Despliegue",
 };

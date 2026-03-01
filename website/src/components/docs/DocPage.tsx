@@ -1,19 +1,40 @@
+"use client";
+
 import Link from "next/link";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 type DocPageProps = {
-  title: string;
+  title?: string;
+  titleKey?: string;
   children: React.ReactNode;
   nextHref?: string;
   nextLabel?: string;
+  nextLabelKey?: string;
   prevHref?: string;
   prevLabel?: string;
+  prevLabelKey?: string;
 };
 
-export function DocPage({ title, children, nextHref, nextLabel, prevHref, prevLabel }: DocPageProps) {
+export function DocPage({
+  title,
+  titleKey,
+  children,
+  nextHref,
+  nextLabel,
+  nextLabelKey,
+  prevHref,
+  prevLabel,
+  prevLabelKey,
+}: DocPageProps) {
+  const { t } = useLanguage();
+  const displayTitle = titleKey ? t(titleKey) : title ?? "";
+  const displayNextLabel = nextLabelKey ? t(nextLabelKey) : nextLabel;
+  const displayPrevLabel = prevLabelKey ? t(prevLabelKey) : prevLabel;
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-12 sm:px-8 lg:px-10">
       <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-        {title}
+        {displayTitle}
       </h1>
       <div className="docs-prose mt-8 text-white/80">
         {children}
@@ -21,16 +42,16 @@ export function DocPage({ title, children, nextHref, nextLabel, prevHref, prevLa
       {(prevHref || nextHref) && (
         <div className="mt-12 flex items-center justify-between border-t border-white/10 pt-8 text-sm text-white/50">
           <span>
-            {prevHref && prevLabel && (
+            {prevHref && displayPrevLabel && (
               <Link href={prevHref} className="font-medium text-brand-400 hover:underline">
-                ← {prevLabel}
+                ← {displayPrevLabel}
               </Link>
             )}
           </span>
           <span>
-            {nextHref && nextLabel && (
+            {nextHref && displayNextLabel && (
               <Link href={nextHref} className="font-medium text-brand-400 hover:underline">
-                {nextLabel} →
+                {displayNextLabel} →
               </Link>
             )}
           </span>

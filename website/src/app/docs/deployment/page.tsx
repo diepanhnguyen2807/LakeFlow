@@ -3,9 +3,9 @@ import { DocPage } from "@/components/docs/DocPage";
 export default function DeploymentPage() {
   return (
     <DocPage
-      title="Deployment"
+      titleKey="docs.pages.deployment.title"
       prevHref="/docs/configuration"
-      prevLabel="Configuration"
+      prevLabelKey="docs.sidebar.configuration"
     >
       <h2>Portainer Stack</h2>
       <p>Portainer does not support <code>build</code> in stack. Build and push images to Docker Hub first.</p>

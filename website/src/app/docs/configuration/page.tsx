@@ -3,11 +3,11 @@ import { DocPage } from "@/components/docs/DocPage";
 export default function ConfigurationPage() {
   return (
     <DocPage
-      title="Configuration"
+      titleKey="docs.pages.configuration.title"
       prevHref="/docs/data-lake"
-      prevLabel="Data Lake Architecture"
+      prevLabelKey="docs.sidebar.dataLake"
       nextHref="/docs/deployment"
-      nextLabel="Deployment"
+      nextLabelKey="docs.sidebar.deployment"
     >
       <p>
         LakeFlow uses a <code>.env</code> file in the repo root. Copy from <code>env.example</code> (or <code>.env.example</code>) then edit.

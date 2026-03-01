@@ -7,9 +7,9 @@ const URL_QDRANT = "http://localhost:8013";
 export default function GettingStartedPage() {
   return (
     <DocPage
-      title="Getting Started"
+      titleKey="docs.pages.gettingStarted.title"
       nextHref="/docs/backend-api"
-      nextLabel="Backend API"
+      nextLabelKey="docs.sidebar.backendApi"
     >
       <h2>System requirements</h2>
       <ul>

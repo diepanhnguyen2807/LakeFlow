@@ -3,11 +3,11 @@ import { DocPage } from "@/components/docs/DocPage";
 export default function FrontendUiPage() {
   return (
     <DocPage
-      title="Frontend (Streamlit)"
+      titleKey="docs.pages.frontendUi.title"
       prevHref="/docs/backend-api"
-      prevLabel="Backend API"
+      prevLabelKey="docs.sidebar.backendApi"
       nextHref="/docs/data-lake"
-      nextLabel="Data Lake Architecture"
+      nextLabelKey="docs.sidebar.dataLake"
     >
       <p>
         LakeFlow frontend is a <strong>Streamlit</strong> control UI at <code>http://localhost:8012</code>. Connects to Backend API to run pipelines, explore Data Lake, and test Semantic Search.

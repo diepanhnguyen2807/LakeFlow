@@ -3,11 +3,11 @@ import { DocPage } from "@/components/docs/DocPage";
 export default function DataLakePage() {
   return (
     <DocPage
-      title="Data Lake Architecture"
+      titleKey="docs.pages.dataLake.title"
       prevHref="/docs/frontend-ui"
-      prevLabel="Frontend (Streamlit)"
+      prevLabelKey="docs.sidebar.frontendUi"
       nextHref="/docs/configuration"
-      nextLabel="Configuration"
+      nextLabelKey="docs.sidebar.configuration"
     >
       <p>
         LakeFlow uses a <strong>layered Data Lake</strong> with 6 zones. Data flow: inbox → raw → staging → processed → embeddings → Qdrant.

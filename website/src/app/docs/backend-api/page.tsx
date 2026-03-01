@@ -3,11 +3,11 @@ import { DocPage } from "@/components/docs/DocPage";
 export default function BackendApiPage() {
   return (
     <DocPage
-      title="Backend API"
+      titleKey="docs.pages.backendApi.title"
       prevHref="/docs/getting-started"
-      prevLabel="Getting Started"
+      prevLabelKey="docs.sidebar.gettingStarted"
       nextHref="/docs/frontend-ui"
-      nextLabel="Frontend (Streamlit)"
+      nextLabelKey="docs.sidebar.frontendUi"
     >
       <p>
         LakeFlow backend is a <strong>FastAPI</strong> application. Base URL: <code>http://localhost:8011</code> (dev) or deployment URL.

@@ -111,8 +111,8 @@ export default function DocsIntroPage() {
               {t("docs.intro.pypi")}
             </a>
           </li>
-          <li><strong>Swagger UI:</strong> <code>http://localhost:8011/docs</code> (when backend is running)</li>
-          <li><strong>ReDoc:</strong> <code>http://localhost:8011/redoc</code></li>
+          <li>{t("docs.intro.swaggerUi")}</li>
+          <li>{t("docs.intro.redoc")}</li>
         </ul>
       </div>
 
