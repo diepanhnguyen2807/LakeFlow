@@ -1,6 +1,6 @@
 """
 Library Regulation Agent (Quy định hướng dẫn) - API compatible with Research Agent: /metadata, /data, /ask.
-Uses Qwen3 8b, data from collection "Library_TCTL" in Qdrant (Word: quy định, hướng dẫn thư viện).
+Uses Qwen3 8b, data from collection "Library_QDHD" in Qdrant (Word: quy định, hướng dẫn thư viện).
 """
 
 import time
@@ -16,7 +16,7 @@ from lakeflow.services.ollama_embed_service import embed_batch
 from lakeflow.services.llm_chat_service import chat_completion
 from lakeflow.services.qdrant_service import get_client
 
-LIBRARY_REGULATION_COLLECTION = "Library_TCTL"
+LIBRARY_REGULATION_COLLECTION = "Library_QDHD"
 
 router = APIRouter(
     prefix="/library_regulation_agent/v1",
@@ -39,7 +39,7 @@ def get_metadata() -> dict:
     """
     return {
         "name": "Quy định hướng dẫn",
-        "description": "Tra cứu thông tin trong các file Word: giới thiệu chung, hướng dẫn nộp chuyên đề tốt nghiệp thạc sĩ, hướng dẫn tìm kiếm và khai thác thông tin, tài liệu hướng dẫn thư viện. Dữ liệu từ bộ sưu tập Library_TCTL trong Qdrant.",
+        "description": "Tra cứu thông tin trong các file Word: giới thiệu chung, hướng dẫn nộp chuyên đề tốt nghiệp thạc sĩ, hướng dẫn tìm kiếm và khai thác thông tin, tài liệu hướng dẫn thư viện. Dữ liệu từ bộ sưu tập Library_QDHD trong Qdrant.",
         "version": "1.0.0",
         "developer": "LakeFlow",
         "primary_language": "vi",
@@ -59,7 +59,7 @@ def get_metadata() -> dict:
             "Tài liệu hướng dẫn sử dụng thư viện có những nội dung gì?",
         ],
         "provided_data_types": [
-            {"type": "qdrant_collection", "description": "Bộ sưu tập Library_TCTL trong Qdrant (nguồn Word)"},
+            {"type": "qdrant_collection", "description": "Bộ sưu tập Library_QDHD trong Qdrant (nguồn Word)"},
         ],
         "contact": "",
         "status": "active",
@@ -104,7 +104,7 @@ def _collect_sources_from_collection(collection: str, limit: int = 500) -> list[
 @router.get("/data")
 def get_data(limit: int = Query(100, ge=1, le=500)):
     """
-    Danh sách nguồn dữ liệu từ bộ sưu tập Library_TCTL.
+    Danh sách nguồn dữ liệu từ bộ sưu tập Library_QDHD.
     """
     try:
         client = get_client(None)
@@ -125,7 +125,7 @@ def get_data(limit: int = Query(100, ge=1, le=500)):
 @router.post("/ask")
 def ask(req: AskRequest):
     """
-    RAG: Lấy đoạn tài liệu liên quan từ bộ sưu tập Library_TCTL, gọi LLM trả lời.
+    RAG: Lấy đoạn tài liệu liên quan từ bộ sưu tập Library_QDHD, gọi LLM trả lời.
     """
     prompt = req.prompt.strip()
     if not prompt:

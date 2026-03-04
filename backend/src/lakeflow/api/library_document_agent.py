@@ -1,6 +1,6 @@
 """
 Library Document Agent (Tra cứu tài liệu) - API compatible with Research Agent: /metadata, /data, /ask.
-Uses Qwen3 8b, data from collection "Library_QDHD" in Qdrant (Excel/CSV: ebook, eTextbook, journals).
+Uses Qwen3 8b, data from collection "Library_TCTL" in Qdrant (Excel/CSV: ebook, eTextbook, journals).
 """
 
 import time
@@ -16,7 +16,7 @@ from lakeflow.services.ollama_embed_service import embed_batch
 from lakeflow.services.llm_chat_service import chat_completion
 from lakeflow.services.qdrant_service import get_client
 
-LIBRARY_DOCUMENT_COLLECTION = "Library_QDHD"
+LIBRARY_DOCUMENT_COLLECTION = "Library_TCTL"
 
 router = APIRouter(
     prefix="/library_document_agent/v1",
@@ -39,7 +39,7 @@ def get_metadata() -> dict:
     """
     return {
         "name": "Tra cứu tài liệu",
-        "description": "Tra cứu thông tin trong các file Excel/CSV: danh mục ebook, eTextbook ProQuest, Ebook Springer, Elsevier, Emerald Insight, IGPublishing, Journal SAGE, ProQuest Central NEU, sách in ngoại văn, sách in Việt văn. Dữ liệu từ bộ sưu tập Library_QDHD trong Qdrant.",
+        "description": "Tra cứu thông tin trong các file Excel/CSV: danh mục ebook, eTextbook ProQuest, Ebook Springer, Elsevier, Emerald Insight, IGPublishing, Journal SAGE, ProQuest Central NEU, sách in ngoại văn, sách in Việt văn. Dữ liệu từ bộ sưu tập Library_TCTL trong Qdrant.",
         "version": "1.0.0",
         "developer": "LakeFlow",
         "primary_language": "vi",
@@ -59,7 +59,7 @@ def get_metadata() -> dict:
             "Sách in ngoại văn về kinh tế?",
         ],
         "provided_data_types": [
-            {"type": "qdrant_collection", "description": "Bộ sưu tập Library_QDHD trong Qdrant (nguồn Excel/CSV)"},
+            {"type": "qdrant_collection", "description": "Bộ sưu tập Library_TCTL trong Qdrant (nguồn Excel/CSV)"},
         ],
         "contact": "",
         "status": "active",
@@ -104,7 +104,7 @@ def _collect_sources_from_collection(collection: str, limit: int = 500) -> list[
 @router.get("/data")
 def get_data(limit: int = Query(100, ge=1, le=500)):
     """
-    Danh sách nguồn dữ liệu từ bộ sưu tập Library_QDHD.
+    Danh sách nguồn dữ liệu từ bộ sưu tập Library_TCTL.
     """
     try:
         client = get_client(None)
@@ -125,7 +125,7 @@ def get_data(limit: int = Query(100, ge=1, le=500)):
 @router.post("/ask")
 def ask(req: AskRequest):
     """
-    RAG: Lấy đoạn tài liệu liên quan từ bộ sưu tập Library_QDHD, gọi LLM trả lời.
+    RAG: Lấy đoạn tài liệu liên quan từ bộ sưu tập Library_TCTL, gọi LLM trả lời.
     """
     prompt = req.prompt.strip()
     if not prompt:
